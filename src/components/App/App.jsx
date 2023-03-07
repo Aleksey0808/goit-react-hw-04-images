@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from '../Modal/Modal';
 import Searchbar from '../Searchbar/Searchbar';
 import ImageGallery from '../ImageGallery';
@@ -10,117 +10,90 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { animateScroll as scroll } from 'react-scroll';
 
-export class App extends Component {
-  state = {
-    query: '',
-    page: 1,
-    isLoading: false,
-    showModal: false,
-    images: [],
-    currentImageUrl: null,
-    currentImageDescription: null,
-    showLoadMoreBtn: false,
-  };
+export function App() {
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [images, setImages] = useState([]);
+  const [currentImageDescription, setCurrentImageDescription] = useState(null);
+  const [showLoadMoreBtn, setShowLoadMoreBtn] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState(null);
 
-  componentDidUpdate(prevProps, prevState) {
-    if (
-      this.state.query !== prevState.query ||
-      this.state.page !== prevState.page
-    ) {
-      this.setState({ isLoading: true });
-      this.fetchQuery(this.state.query, this.state.page);
+  useEffect(() => {
+    if (!query) {
+      return;
     }
-  }
+    setIsLoading(true);
+    fetchQuery(query, page);
+  }, [page, query]);
 
-  onSubmit = FormData => {
-    const { query } = FormData;
-    this.setState({ query: query, page: 1, images: [] });
-  };
-
-  async fetchQuery({ query }, page) {
+  async function fetchQuery(query, page) {
     try {
-      const api = await apiService(query, page);
-      console.log(api);
+      await apiService(query, page).then(api => {
+        const total = api.totalHits;
+        const images = api.hits;
+        const picsLast = total - 12 * page;
 
-      const total = api.totalHits;
-      const images = api.hits;
-      const picsLast = total - 12 * this.state.page;
-      console.log(picsLast);
+        if (images.length === 0 || query.trim() === '') {
+          setShowLoadMoreBtn(false);
+          toast.error(`Nothing found for your request`, {
+            autoClose: 1500,
+          });
 
-      if (query.trim() === '') {
-        return toast.error(`Nothing found for your request`, {
-          autoClose: 1500,
-        });
-      }
-      if (images.length === 0) {
-        this.setState({ showLoadMoreBtn: false });
-        toast.error(`Nothing found for your request`, {
-          autoClose: 1500,
-        });
+          return;
+        } else {
+          setImages(prevState => [...prevState, ...images]);
+        }
 
-        return;
-      } else {
-        this.setState(prevState => ({
-          images: [...prevState.images, ...images],
-        }));
-      }
+        if (images.length > 0 && page === 1) {
+          toast.info(`Found ${api.total} images for your requestё`, {
+            autoClose: 1500,
+          });
+        }
 
-      if (images.length > 0 && this.state.page === 1) {
-        toast.info(`Found ${api.total} images for your requestё`, {
-          autoClose: 1500,
-        });
-      }
-
-      picsLast > 0
-        ? this.setState({ showLoadMoreBtn: true })
-        : this.setState({ showLoadMoreBtn: false });
+        picsLast > 0 ? setShowLoadMoreBtn(true) : setShowLoadMoreBtn(false);
+      });
     } catch (error) {
+      console.log(error);
       toast.error('Enter a request!', { autoClose: 1500 });
     } finally {
-      this.setState({ isLoading: false });
+      setIsLoading(false);
     }
   }
 
-  toggleModal = (currentImageUrl, currentImageDescription) => {
-    this.setState(({ showModal }) => ({
-      showModal: !showModal,
-      currentImageUrl: currentImageUrl,
-      currentImageDescription: currentImageDescription,
-    }));
+  const toggleModal = (currentImageUrl, currentImageDescription) => {
+    setShowModal(!showModal);
+    setCurrentImageUrl(currentImageUrl);
+    setCurrentImageDescription(currentImageDescription);
   };
 
-  onNextFetch = () => {
-    this.setState(({ page }) => ({ page: page + 1 }));
+  const onNextFetch = () => {
+    setPage(prevState => prevState + 1);
     scroll.scrollToBottom();
   };
 
-  getSearchRequest = query => {
-    this.setState({ query, page: 1, images: [] });
+  const onSubmit = ({ query }) => {
+    setQuery(query);
+    setPage(1);
+    setImages([]);
   };
 
-  render() {
-    const { showModal } = this.state;
-    return (
-      <Container>
-        <ToastContainer />
-        {showModal && (
-          <Modal
-            onClose={this.toggleModal}
-            src={this.state.currentImageUrl}
-            alt={this.state.currentImageDescription}
-          />
-        )}
-        <Searchbar onSubmit={this.getSearchRequest} />
+  return (
+    <Container>
+      <ToastContainer />
+      {showModal && (
+        <Modal
+          onClose={toggleModal}
+          src={currentImageUrl}
+          alt={currentImageDescription}
+        />
+      )}
+      <Searchbar onSubmit={onSubmit} />
 
-        {this.state.images && (
-          <ImageGallery
-            images={this.state.images}
-            openModal={this.toggleModal}
-          />
-        )}
-        {this.state.isLoading && <Loader />}
-        {this.state.showLoadMoreBtn && <Button loadMore={this.onNextFetch} />}
-      </Container>
-    );
-  }
+      {images && <ImageGallery images={images} openModal={toggleModal} />}
+      {isLoading && <Loader />}
+      {showLoadMoreBtn && <Button loadMore={onNextFetch} />}
+    </Container>
+  );
 }
