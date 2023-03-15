@@ -9,6 +9,7 @@ import { Container } from './App.styles';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { animateScroll as scroll } from 'react-scroll';
+import { nanoid } from 'nanoid';
 
 export function App() {
   const [query, setQuery] = useState('');
@@ -19,6 +20,7 @@ export function App() {
   const [currentImageDescription, setCurrentImageDescription] = useState(null);
   const [showLoadMoreBtn, setShowLoadMoreBtn] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState(null);
+  const [reqId, setReqId] = useState(null);
 
   useEffect(() => {
     if (!query) {
@@ -26,7 +28,7 @@ export function App() {
     }
     setIsLoading(true);
     fetchQuery(query, page);
-  }, [page, query]);
+  }, [page, query, reqId]);
 
   async function fetchQuery(query, page) {
     try {
@@ -74,6 +76,7 @@ export function App() {
   };
 
   const onSubmit = ({ query }) => {
+    setReqId(nanoid());
     setQuery(query);
     setPage(1);
     setImages([]);
